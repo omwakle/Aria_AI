@@ -6,3 +6,7 @@ python-dotenv>=1.0.1
 azure-core>=1.30.0
 numpy>=1.26.0
 aiortc>=1.9.0
+# ✅ Add these missing dependencies
+aiohttp>=3.9.0          # async HTTP client
+aiofiles>=23.2.0        # async file handling
+python-multipart>=0.0.9 # form data handling
