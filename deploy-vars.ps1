@@ -1,0 +1,8 @@
+$RG       = "aria-ai-rg"
+$LOCATION = "eastus2"
+$ACR      = "ariaaiacr2026"
+$ENV      = "aria-ai-env"
+$APP      = "aria-ai-app"
+$IMAGE    = "aria-ai"
+$TAG      = "latest"
+$REGISTRY = "$ACR.azurecr.io"

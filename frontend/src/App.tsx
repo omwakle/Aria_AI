@@ -147,9 +147,11 @@ function App() {
     const [userTranscript, setUserTranscript] = useState("");
     const [textInput, setTextInput] = useState("");
     const [, appendLog] = useLog();
-    const [avatarIceServers, setAvatarIceServers] = useState<RTCIceServer[]>(
-        []
-    );
+    const [avatarIceServers, setAvatarIceServers] = useState<RTCIceServer[]>([
+        { urls: "stun:stun.l.google.com:19302" },
+        // Add a TURN server here for restrictive/corporate networks, e.g.:
+        // { urls: "turn:<host>:3478", username: "<user>", credential: "<pass>" },
+    ]);
 
     const wsRef = useRef<WebSocket | null>(null);
     const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -457,14 +459,28 @@ function App() {
         }
 
         setAvatarLoading(true);
+        // Fetch fresh STUN/TURN credentials from the backend (ACS relay).
+        let iceServers = avatarIceServers;
+        try {
+            const iceResp = await fetch(`${BACKEND_HTTP_BASE}/ice-servers`);
+            if (iceResp.ok) {
+                const data = await iceResp.json();
+                if (Array.isArray(data.ice_servers) && data.ice_servers.length) {
+                    iceServers = data.ice_servers as RTCIceServer[];
+                    setAvatarIceServers(iceServers);
+                }
+            }
+        } catch (err) {
+            appendLog(`Failed to fetch ICE servers: ${String(err)}`);
+        }
         appendLog(
-            `Initializing avatar connection... (ICE servers: ${avatarIceServers.length})`
+            `Initializing avatar connection... (ICE servers: ${iceServers.length})`
         );
 
         try {
             const pc = new RTCPeerConnection({
                 bundlePolicy: "max-bundle",
-                iceServers: avatarIceServers,
+                iceServers,
             });
             pcRef.current = pc;
 
