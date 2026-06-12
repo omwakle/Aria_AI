@@ -459,15 +459,15 @@ function App() {
         }
 
         setAvatarLoading(true);
-        // Fetch fresh STUN/TURN credentials from the backend (ACS relay).
-        let iceServers = avatarIceServers;
+        // Start with the ICE servers Azure Voice Live provided via session.updated,
+        // then append anything the backend supplies (STUN / static TURN).
+        let iceServers: RTCIceServer[] = [...avatarIceServers];
         try {
             const iceResp = await fetch(`${BACKEND_HTTP_BASE}/ice-servers`);
             if (iceResp.ok) {
                 const data = await iceResp.json();
                 if (Array.isArray(data.ice_servers) && data.ice_servers.length) {
-                    iceServers = data.ice_servers as RTCIceServer[];
-                    setAvatarIceServers(iceServers);
+                    iceServers = [...iceServers, ...(data.ice_servers as RTCIceServer[])];
                 }
             }
         } catch (err) {

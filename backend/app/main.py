@@ -96,36 +96,46 @@ async def handle_avatar_offer(session_id: str, request: AvatarOfferRequest) -> A
     server_sdp = await session.connect_avatar(request.sdp)
     return AvatarAnswerResponse(sdp=server_sdp)
 
-def _build_ice_servers() -> list[dict]:
-    """Return ICE (STUN/TURN) servers for the browser's RTCPeerConnection.
-
-    Priority:
-      1. Azure Communication Services relay (TURN over UDP/TCP/TLS) when
-         ACS_CONNECTION_STRING is set.
-      2. Static TURN server from TURN_URLS / TURN_USERNAME / TURN_CREDENTIAL.
-    A public STUN server is always included as a baseline.
-    """
-    ice_servers: list[dict] = [{"urls": "stun:stun.l.google.com:19302"}]
-
-    # 1) Azure Communication Services relay credentials
+def _build_ice_servers() -> list:
+    """Return ICE (STUN/TURN) servers for the browser's RTCPeerConnection."""
+    ice_servers = [{"urls": "stun:stun.l.google.com:19302"}]
+ 
     acs_conn = os.getenv("ACS_CONNECTION_STRING")
     if acs_conn:
         try:
             from azure.communication.networktraversal import CommunicationRelayClient
-
+ 
             relay_client = CommunicationRelayClient.from_connection_string(acs_conn)
             relay_config = relay_client.get_relay_configuration()
             for srv in relay_config.ice_servers:
-                entry: Dict[str, object] = {"urls": list(srv.urls)}
+                entry = {"urls": list(srv.urls)}
                 if getattr(srv, "username", None):
                     entry["username"] = srv.username
                 if getattr(srv, "credential", None):
                     entry["credential"] = srv.credential
                 ice_servers.append(entry)
-            logger.info("Loaded %d ICE server(s) from Azure Communication Services", len(relay_config.ice_servers))
+            logger.info("Loaded %d ICE server(s) from ACS", len(relay_config.ice_servers))
             return ice_servers
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception as exc:
             logger.exception("Failed to fetch ACS relay configuration: %s", exc)
+ 
+    turn_urls = os.getenv("TURN_URLS")
+    if turn_urls:
+        entry = {"urls": [u.strip() for u in turn_urls.split(",") if u.strip()]}
+        if os.getenv("TURN_USERNAME"):
+            entry["username"] = os.getenv("TURN_USERNAME")
+        if os.getenv("TURN_CREDENTIAL"):
+            entry["credential"] = os.getenv("TURN_CREDENTIAL")
+        ice_servers.append(entry)
+ 
+    return ice_servers
+ 
+ 
+@app.get("/ice-servers")
+async def get_ice_servers() -> dict:
+    """Provide STUN/TURN servers for the avatar WebRTC connection."""
+    return {"ice_servers": _build_ice_servers()}
+
 
 @app.post("/sessions/{session_id}/text")
 async def send_text_message(session_id: str, request: TextMessageRequest) -> Dict[str, str]:
